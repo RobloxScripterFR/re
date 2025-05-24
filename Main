@@ -1,0 +1,270 @@
+--🌪️ ULTIMATE TORNADO SCRIPT v7.4🌪️--
+local tornadoActive = false
+local radius = 50
+local height = 20
+local spinSpeed = 10
+local attractionPower = 200
+local tickOffset = 0
+
+-- ===== MODERN UI =====
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "TornadoControl"
+screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 400, 0, 350)
+mainFrame.Position = UDim2.new(0.5, -200, 0.6, -175)
+mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20) -- Darker background
+mainFrame.BackgroundTransparency = 0.1
+mainFrame.Active = true
+mainFrame.Draggable = true
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 14)
+UICorner.Parent = mainFrame
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(40, 60, 100) -- Darker stroke color
+UIStroke.Thickness = 3
+UIStroke.Parent = mainFrame
+
+-- Title Bar
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 40)
+titleBar.BackgroundColor3 = Color3.fromRGB(20, 30, 45) -- Darker title bar
+titleBar.Parent = mainFrame
+
+local titleText = Instance.new("TextLabel")
+titleText.Size = UDim2.new(1, -20, 1, 0)
+titleText.Position = UDim2.new(0, 10, 0, 0)
+titleText.Text = "BRITISH SHENANIGANS" -- New title
+titleText.TextColor3 = Color3.fromRGB(180, 200, 255) -- Slightly softer text color
+titleText.Font = Enum.Font.GothamBlack
+titleText.TextSize = 18
+titleText.TextXAlignment = Enum.TextXAlignment.Left
+titleText.BackgroundTransparency = 1
+titleText.Parent = titleBar
+
+-- Control Creation
+local function createControl(name, defaultValue, yPos)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0.9, 0, 0, 50)
+    frame.Position = UDim2.new(0.05, 0, yPos, 0)
+    frame.BackgroundTransparency = 1
+    frame.Parent = mainFrame
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.6, 0, 0, 25)
+    label.Text = name
+    label.TextColor3 = Color3.fromRGB(150, 170, 220) -- Darker label text
+    label.Font = Enum.Font.GothamSemibold
+    label.TextSize = 16
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.BackgroundTransparency = 1
+    label.Parent = frame
+
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(0.35, 0, 0, 30)
+    box.Position = UDim2.new(0.65, 0, 0, 0)
+    box.Text = tostring(defaultValue)
+    box.TextColor3 = Color3.fromRGB(200, 200, 200) -- Darker textbox text
+    box.Font = Enum.Font.GothamBold
+    box.TextSize = 16
+    box.BackgroundColor3 = Color3.fromRGB(30, 40, 55) -- Darker textbox background
+    box.Parent = frame
+
+    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 6)
+    Instance.new("UIStroke", box).Color = Color3.fromRGB(70, 100, 150) -- Darker textbox stroke
+    
+    return box
+end
+
+-- Create Controls
+local radiusBox = createControl("RADIUS:", radius, 0.15)
+local heightBox = createControl("HEIGHT:", height, 0.3)
+local spinBox = createControl("SPIN:", spinSpeed, 0.45)
+local powerBox = createControl("POWER:", attractionPower, 0.6)
+
+-- Toggle Button
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0.9, 0, 0, 50)
+toggleButton.Position = UDim2.new(0.05, 0, 0.8, 0)
+toggleButton.Text = "ACTIVATE TORNADO"
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.Font = Enum.Font.GothamBlack
+toggleButton.TextSize = 18
+toggleButton.BackgroundColor3 = Color3.fromRGB(150, 40, 40) -- Darker red for inactive
+toggleButton.Parent = mainFrame
+
+Instance.new("UICorner", toggleButton).CornerRadius = UDim.new(0, 8)
+Instance.new("UIStroke", toggleButton).Color = Color3.fromRGB(200, 60, 60) -- Darker red stroke
+
+mainFrame.Parent = screenGui
+
+-- Store parts currently affected by the tornado
+local affectedParts = {}
+
+-- ===== TORNADO ENGINE =====
+local function unleashChaos()
+    local player = game.Players.LocalPlayer
+    local character = player.Character or player.CharacterAdded:Wait()
+    local rootPart = character:WaitForChild("HumanoidRootPart")
+    
+    -- Anchor player
+    local originalAnchored = rootPart.Anchored
+    rootPart.Anchored = true
+    
+    local partProperties = {} -- Stores specific properties for each part in the tornado
+    
+    while tornadoActive and task.wait(0.02) do
+        tickOffset += 0.1
+        
+        -- Update parameters
+        radius = math.clamp(tonumber(radiusBox.Text) or radius, 10, 2000) 
+        height = math.clamp(tonumber(heightBox.Text) or height, 1, 400) 
+        spinSpeed = math.clamp(tonumber(spinBox.Text) or spinSpeed, 0.1, 50) 
+        attractionPower = math.clamp(tonumber(powerBox.Text) or attractionPower, 10, 5000) 
+        
+        -- Massively increased attraction range
+        local attractionRange = (radius * 15) + (attractionPower * 3) 
+        attractionRange = math.min(attractionRange, 5000) 
+        
+        -- Attraction Phase
+        for _, part in pairs(workspace:GetDescendants()) do
+            if part:IsA("BasePart") and not part.Anchored and part ~= rootPart then
+                -- Skip non-physical parts like terrain (if using specific terrain types)
+                -- Also skip parts that are already parented to the player's character, except for HumanoidRootPart itself
+                if part.Name == "Terrain" or (part.Parent == character and part ~= rootPart) then continue end
+
+                if not partProperties[part] then
+                    partProperties[part] = {
+                        heightBase = math.random(), -- Now ranges from 0 to 1 for upward distribution
+                        orbitOffset = math.random() * math.pi * 2,
+                        spinFactor = math.random(8, 12) / 10 
+                    }
+                    affectedParts[part] = true -- Add to affected parts list
+                end
+                
+                local props = partProperties[part]
+                local direction = (rootPart.Position - part.Position).Unit
+                local distance = (rootPart.Position - part.Position).Magnitude
+                
+                if distance < attractionRange then
+                    local force = attractionPower * (1 - (distance/attractionRange))^0.1 * 5 
+                    part.CanCollide = false 
+                    pcall(function()
+                        part.Velocity = part.Velocity * 0.6 + direction * force
+                    end)
+                else
+                    -- Clean up properties for parts out of range if they were in the tornado before
+                    if partProperties[part] then
+                        partProperties[part] = nil
+                        affectedParts[part] = nil -- Remove from affected parts list
+                    end
+                end
+            end
+        end
+
+        -- Donut Formation
+        local partsToRemoveFromProperties = {} 
+        for part, props in pairs(partProperties) do
+            if part.Parent and not part.Anchored then
+                local positionOffset = (part.Position - rootPart.Position)
+                local horizontalDistance = Vector3.new(positionOffset.X, 0, positionOffset.Z).Magnitude
+                
+                if horizontalDistance < radius * 2.5 then 
+                    local targetRadius = radius 
+                    local angle = tickOffset * spinSpeed + props.orbitOffset
+                    
+                    local targetX = rootPart.Position.X + math.cos(angle) * targetRadius
+                    local targetZ = rootPart.Position.Z + math.sin(angle) * targetRadius
+                    
+                    -- Height distribution now only upwards from player's Y, with oscillation
+                    local targetY = rootPart.Position.Y + 
+                        (props.heightBase * height) + -- Parts distributed from Y to Y + height
+                        math.sin(tickOffset * 3) * (height * 0.2) 
+                    
+                    local targetPosition = Vector3.new(targetX, targetY, targetZ)
+                    local directionToTarget = (targetPosition - part.Position).Unit
+                    
+                    pcall(function()
+                        part.Velocity = part.Velocity * 0.2 + directionToTarget * (attractionPower * 2) 
+                        part.RotVelocity = Vector3.new(
+                            0,
+                            spinSpeed * 50 * props.spinFactor,
+                            0
+                        )
+                    end)
+                else
+                    table.insert(partsToRemoveFromProperties, part)
+                end
+            else
+                table.insert(partsToRemoveFromProperties, part)
+            end
+        end
+
+        for _, part in ipairs(partsToRemoveFromProperties) do
+            partProperties[part] = nil
+            affectedParts[part] = nil 
+        end
+    end
+    
+    -- Cleanup after tornado deactivates
+    rootPart.Anchored = originalAnchored
+    pcall(function()
+        rootPart.Velocity = Vector3.new(0,0,0)
+        rootPart.RotVelocity = Vector3.new(0,0,0)
+    end)
+
+
+    for part, _ in pairs(affectedParts) do
+        if part and part.Parent and part:IsA("BasePart") then
+            pcall(function()
+                part.Velocity = Vector3.new(0,0,0)
+                part.RotVelocity = Vector3.new(0,0,0)
+                part.CanCollide = true -- Restore collision
+            end)
+        end
+    end
+    -- Clear the list of affected parts
+    affectedParts = {} 
+end
+
+-- ===== TOGGLE FUNCTION =====
+toggleButton.MouseButton1Click:Connect(function()
+    tornadoActive = not tornadoActive
+    
+    if tornadoActive then
+        toggleButton.Text = "DEACTIVATE"
+        toggleButton.BackgroundColor3 = Color3.fromRGB(40, 180, 40) 
+        task.spawn(unleashChaos) 
+    else
+        toggleButton.Text = "ACTIVATE"
+        toggleButton.BackgroundColor3 = Color3.fromRGB(150, 40, 40) 
+    end
+end)
+
+-- ===== UI DRAGGING =====
+local dragInput, dragStart, startPos
+
+titleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragStart = input.Position
+        startPos = mainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragStart = nil
+            end
+        end)
+    end
+end)
+
+titleBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement and dragStart then
+        local delta = input.Position - dragStart
+        mainFrame.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+        )
+    end
+end)
